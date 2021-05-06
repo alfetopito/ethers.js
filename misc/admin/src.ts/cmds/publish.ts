@@ -1,13 +1,13 @@
-const { createHash } = require("crypto");
-import fs from "fs";
-
-import AWS from 'aws-sdk';
-
-import { getLatestChange } from "../changelog";
-import { config } from "../config";
+//const { createHash } = require("crypto");
+//import fs from "fs";
+//
+//import AWS from 'aws-sdk';
+//
+//import { getLatestChange } from "../changelog";
+//import { config } from "../config";
 import { getOrdered } from "../depgraph";
 import { getGitTag } from "../git";
-import { createRelease } from "../github";
+//import { createRelease } from "../github";
 import * as local from "../local";
 import { colorify, getProgressBar } from "../log";
 import * as npm from "../npm";
@@ -17,53 +17,53 @@ import { loadJson, repeat } from "../utils";
 const USER_AGENT = "ethers-dist@0.0.1";
 const TAG = "latest";
 
-const forcePublish = (process.argv.slice(2).indexOf("--publish") >= 0);
-
-type PutInfo = {
-    ACL: "public-read";
-    Body: string | Buffer;
-    Bucket: string;
-    ContentType: string;
-    Key: string;
-}
-
-export function putObject(s3: AWS.S3, info: PutInfo): Promise<{ name: string, hash: string }> {
-    return new Promise((resolve, reject) => {
-        s3.putObject(info, function(error, data) {
-            if (error) {
-                reject(error);
-            } else {
-                resolve({
-                    name: info.Key,
-                    hash: data.ETag.replace(/"/g, '')
-                });
-            }
-        });
-    });
-}
-
-export function invalidate(cloudfront: AWS.CloudFront, distributionId: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        cloudfront.createInvalidation({
-            DistributionId: distributionId,
-            InvalidationBatch: {
-                CallerReference: `${ USER_AGENT }-${ parseInt(String((new Date()).getTime() / 1000)) }`,
-                Paths: {
-                    Quantity: 1,
-                    Items: [
-                        "/\*"
-                    ]
-                }
-            }
-        }, function(error, data) {
-            if (error) {
-                console.log(error);
-                return;
-            }
-            resolve(data.Invalidation.Id);
-        });
-    });
-}
+//const forcePublish = (process.argv.slice(2).indexOf("--publish") >= 0);
+//
+//type PutInfo = {
+//    ACL: "public-read";
+//    Body: string | Buffer;
+//    Bucket: string;
+//    ContentType: string;
+//    Key: string;
+//}
+//
+//export function putObject(s3: AWS.S3, info: PutInfo): Promise<{ name: string, hash: string }> {
+//    return new Promise((resolve, reject) => {
+//        s3.putObject(info, function(error, data) {
+//            if (error) {
+//                reject(error);
+//            } else {
+//                resolve({
+//                    name: info.Key,
+//                    hash: data.ETag.replace(/"/g, '')
+//                });
+//            }
+//        });
+//    });
+//}
+//
+//export function invalidate(cloudfront: AWS.CloudFront, distributionId: string): Promise<string> {
+//    return new Promise((resolve, reject) => {
+//        cloudfront.createInvalidation({
+//            DistributionId: distributionId,
+//            InvalidationBatch: {
+//                CallerReference: `${ USER_AGENT }-${ parseInt(String((new Date()).getTime() / 1000)) }`,
+//                Paths: {
+//                    Quantity: 1,
+//                    Items: [
+//                        "/\*"
+//                    ]
+//                }
+//            }
+//        }, function(error, data) {
+//            if (error) {
+//                console.log(error);
+//                return;
+//            }
+//            resolve(data.Invalidation.Id);
+//        });
+//    });
+//}
 
 (async function() {
     const dirnames = getOrdered();
@@ -115,8 +115,12 @@ export function invalidate(cloudfront: AWS.CloudFront, distributionId: string): 
     };
 
     try {
-        const token = (await config.get("npm-token")).trim().split("=");
-        options[token[0]] = token[1];
+	if (!process.env.NPM_TOKEN) {
+	    throw new Error('Missing npm token. Set `NPM_TOKEN` env var.');
+	}
+	options['token'] = process.env.NPM_TOKEN;
+        // const token = (await config.get("npm-token")).trim().split("=");
+        // options[token[0]] = token[1];
     } catch (error) {
         switch (error.message) {
             case "wrong password":
@@ -143,129 +147,132 @@ export function invalidate(cloudfront: AWS.CloudFront, distributionId: string): 
 
         local.updateJson(pathJson, { gitHead: gitHead }, true);
         const info = loadJson(pathJson);
+	console.log(`----`, options);
+	info.name = 'ethers_' + info.name.split(/\//)[1] + '_alfetopito';
+	console.log(`----`, info);
         await npm.publish(path, info, options);
         local.updateJson(pathJson, { gitHead: undefined }, true);
     }
 
-    if (publishNames.indexOf("ethers") >= 0 || forcePublish) {
-        const change = getLatestChange();
+   // if (publishNames.indexOf("ethers") >= 0 || forcePublish) {
+   //     const change = getLatestChange();
 
-        const patchVersion = change.version.substring(1);
-        const minorVersion = patchVersion.split(".").slice(0, 2).join(".")
+   //     const patchVersion = change.version.substring(1);
+   //     const minorVersion = patchVersion.split(".").slice(0, 2).join(".")
 
-        const awsAccessId = await config.get("aws-upload-scripts-accesskey");
-        const awsSecretKey = await config.get("aws-upload-scripts-secretkey");
+   //     const awsAccessId = await config.get("aws-upload-scripts-accesskey");
+   //     const awsSecretKey = await config.get("aws-upload-scripts-secretkey");
 
-        // Publish tagged release on GitHub
-        {
-            // The password above already succeeded
-            const username = await config.get("github-user");
-            const password = await config.get("github-release");
+   //     // Publish tagged release on GitHub
+   //     {
+   //         // The password above already succeeded
+   //         const username = await config.get("github-user");
+   //         const password = await config.get("github-release");
 
-            const hash = createHash("sha384").update(fs.readFileSync(resolve("packages/ethers/dist/ethers.umd.min.js"))).digest("base64");
+   //         const hash = createHash("sha384").update(fs.readFileSync(resolve("packages/ethers/dist/ethers.umd.min.js"))).digest("base64");
 
-            const gitCommit = await getGitTag(resolve("CHANGELOG.md"));
+   //         const gitCommit = await getGitTag(resolve("CHANGELOG.md"));
 
-            let content = change.content.trim();
-            content += '\n\n----\n\n';
-            content += '**Embedding UMD with [SRI](https:/\/developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity):**\n';
-            content += '```html\n';
-            content += '<script type="text/javascript"\n';
-            content += `        integrity="sha384-${ hash }"\n`;
-            content += '        crossorigin="anonymous"\n';
-            content += `        src="https:/\/cdn-cors.ethers.io/lib/ethers-${ patchVersion }.umd.min.js">\n`;
-            content += '</script>\n';
-            content += '```';
+   //         let content = change.content.trim();
+   //         content += '\n\n----\n\n';
+   //         content += '**Embedding UMD with [SRI](https:/\/developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity):**\n';
+   //         content += '```html\n';
+   //         content += '<script type="text/javascript"\n';
+   //         content += `        integrity="sha384-${ hash }"\n`;
+   //         content += '        crossorigin="anonymous"\n';
+   //         content += `        src="https:/\/cdn-cors.ethers.io/lib/ethers-${ patchVersion }.umd.min.js">\n`;
+   //         content += '</script>\n';
+   //         content += '```';
 
-            // Publish the release
-            const beta = false;
-            const link = await createRelease(username, password, change.version, change.title, content, beta, gitCommit);
-            console.log(`${ colorify.bold("Published release:") } ${ link }`);
-        }
+   //         // Publish the release
+   //         const beta = false;
+   //         const link = await createRelease(username, password, change.version, change.title, content, beta, gitCommit);
+   //         console.log(`${ colorify.bold("Published release:") } ${ link }`);
+   //     }
 
-        // Upload libs to the CDN (as ethers-v5.1 and ethers-5.1.x)
-        {
-            const bucketNameLib = await config.get("aws-upload-scripts-bucket");
-            const originRootLib = await config.get("aws-upload-scripts-root");
+   //     // Upload libs to the CDN (as ethers-v5.1 and ethers-5.1.x)
+   //     {
+   //         const bucketNameLib = await config.get("aws-upload-scripts-bucket");
+   //         const originRootLib = await config.get("aws-upload-scripts-root");
 
-            const bucketNameCors = await config.get("aws-upload-scripts-bucket-cors");
-            const originRootCors = await config.get("aws-upload-scripts-root-cors");
+   //         const bucketNameCors = await config.get("aws-upload-scripts-bucket-cors");
+   //         const originRootCors = await config.get("aws-upload-scripts-root-cors");
 
-            const s3 = new AWS.S3({
-                apiVersion: '2006-03-01',
-                accessKeyId: awsAccessId,
-                secretAccessKey: awsSecretKey
-            });
+   //         const s3 = new AWS.S3({
+   //             apiVersion: '2006-03-01',
+   //             accessKeyId: awsAccessId,
+   //             secretAccessKey: awsSecretKey
+   //         });
 
-            // Upload the libs to ethers-v5.1 and ethers-5.1.x
-            const fileInfos: Array<{ bucketName: string, originRoot: string, filename: string, key: string, suffix?: string }> = [
-                // The CORS-enabled versions on cdn-cors.ethers.io
-                {
-                    bucketName: bucketNameCors,
-                    originRoot: originRootCors,
-                    suffix: "-cors",
-                    filename: "packages/ethers/dist/ethers.esm.min.js",
-                    key: `ethers-${ patchVersion }.esm.min.js`
-                },
-                {
-                    bucketName: bucketNameCors,
-                    originRoot: originRootCors,
-                    suffix: "-cors",
-                    filename: "packages/ethers/dist/ethers.umd.min.js",
-                    key: `ethers-${ patchVersion }.umd.min.js`
-                },
+   //         // Upload the libs to ethers-v5.1 and ethers-5.1.x
+   //         const fileInfos: Array<{ bucketName: string, originRoot: string, filename: string, key: string, suffix?: string }> = [
+   //             // The CORS-enabled versions on cdn-cors.ethers.io
+   //             {
+   //                 bucketName: bucketNameCors,
+   //                 originRoot: originRootCors,
+   //                 suffix: "-cors",
+   //                 filename: "packages/ethers/dist/ethers.esm.min.js",
+   //                 key: `ethers-${ patchVersion }.esm.min.js`
+   //             },
+   //             {
+   //                 bucketName: bucketNameCors,
+   //                 originRoot: originRootCors,
+   //                 suffix: "-cors",
+   //                 filename: "packages/ethers/dist/ethers.umd.min.js",
+   //                 key: `ethers-${ patchVersion }.umd.min.js`
+   //             },
 
-                // The non-CORS-enabled versions on cdn.ethers.io
-                {
-                    bucketName: bucketNameLib,
-                    originRoot: originRootLib,
-                    filename: "packages/ethers/dist/ethers.esm.min.js",
-                    key: `ethers-${ patchVersion }.esm.min.js`
-                },
-                {
-                    bucketName: bucketNameLib,
-                    originRoot: originRootLib,
-                    filename: "packages/ethers/dist/ethers.umd.min.js",
-                    key: `ethers-${ patchVersion }.umd.min.js`
-                },
-                {
-                    bucketName: bucketNameLib,
-                    originRoot: originRootLib,
-                    filename: "packages/ethers/dist/ethers.esm.min.js",
-                    key: `ethers-${ minorVersion }.esm.min.js`
-                },
-                {
-                    bucketName: bucketNameLib,
-                    originRoot: originRootLib,
-                    filename: "packages/ethers/dist/ethers.umd.min.js",
-                    key: `ethers-${ minorVersion }.umd.min.js`
-                },
-            ];
+   //             // The non-CORS-enabled versions on cdn.ethers.io
+   //             {
+   //                 bucketName: bucketNameLib,
+   //                 originRoot: originRootLib,
+   //                 filename: "packages/ethers/dist/ethers.esm.min.js",
+   //                 key: `ethers-${ patchVersion }.esm.min.js`
+   //             },
+   //             {
+   //                 bucketName: bucketNameLib,
+   //                 originRoot: originRootLib,
+   //                 filename: "packages/ethers/dist/ethers.umd.min.js",
+   //                 key: `ethers-${ patchVersion }.umd.min.js`
+   //             },
+   //             {
+   //                 bucketName: bucketNameLib,
+   //                 originRoot: originRootLib,
+   //                 filename: "packages/ethers/dist/ethers.esm.min.js",
+   //                 key: `ethers-${ minorVersion }.esm.min.js`
+   //             },
+   //             {
+   //                 bucketName: bucketNameLib,
+   //                 originRoot: originRootLib,
+   //                 filename: "packages/ethers/dist/ethers.umd.min.js",
+   //                 key: `ethers-${ minorVersion }.umd.min.js`
+   //             },
+   //         ];
 
-            for (let i = 0; i < fileInfos.length; i++) {
-                const { bucketName, originRoot, filename, key, suffix } = fileInfos[i];
-                await putObject(s3, {
-                    ACL: "public-read",
-                    Body: fs.readFileSync(resolve(filename)),
-                    Bucket: bucketName,
-                    ContentType: "application/javascript; charset=utf-8",
-                    Key: (originRoot + key)
-                });
-                console.log(`${ colorify.bold("Uploaded:") } https://cdn${ suffix || "" }.ethers.io/lib/${ key }`);
-            }
-        }
+   //         for (let i = 0; i < fileInfos.length; i++) {
+   //             const { bucketName, originRoot, filename, key, suffix } = fileInfos[i];
+   //             await putObject(s3, {
+   //                 ACL: "public-read",
+   //                 Body: fs.readFileSync(resolve(filename)),
+   //                 Bucket: bucketName,
+   //                 ContentType: "application/javascript; charset=utf-8",
+   //                 Key: (originRoot + key)
+   //             });
+   //             console.log(`${ colorify.bold("Uploaded:") } https://cdn${ suffix || "" }.ethers.io/lib/${ key }`);
+   //         }
+   //     }
 
-        // Flush the edge caches
-        {
-            const distributionId = await config.get("aws-upload-scripts-distribution-id");
+   //     // Flush the edge caches
+   //     {
+   //         const distributionId = await config.get("aws-upload-scripts-distribution-id");
 
-            const cloudfront = new AWS.CloudFront({
-                //apiVersion: '2006-03-01',
-                accessKeyId: awsAccessId,
-                secretAccessKey: awsSecretKey
-            });
-            const invalidationId = await invalidate(cloudfront, distributionId);
-            console.log(`${ colorify.bold("Invalidating Edge Cache:") } ${ invalidationId }`);
-        }
-    }
+   //         const cloudfront = new AWS.CloudFront({
+   //             //apiVersion: '2006-03-01',
+   //             accessKeyId: awsAccessId,
+   //             secretAccessKey: awsSecretKey
+   //         });
+   //         const invalidationId = await invalidate(cloudfront, distributionId);
+   //         console.log(`${ colorify.bold("Invalidating Edge Cache:") } ${ invalidationId }`);
+   //     }
+   // }
 })();
