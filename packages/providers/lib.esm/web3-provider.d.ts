@@ -3,6 +3,7 @@ import { JsonRpcProvider } from "./json-rpc-provider";
 export declare type ExternalProvider = {
     isMetaMask?: boolean;
     isStatus?: boolean;
+    isTrust?: boolean;
     host?: string;
     path?: string;
     sendAsync?: (request: {

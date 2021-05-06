@@ -25,7 +25,7 @@ var _nextId = 1;
 function buildWeb3LegacyFetcher(provider, sendFunc) {
     return function (method, params) {
         // Metamask complains about eth_sign (and on some versions hangs)
-        if (method == "eth_sign" && (provider.isMetaMask || provider.isStatus)) {
+        if (method == "eth_sign" && (provider.isMetaMask || provider.isStatus || provider.isTrust)) {
             // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
             method = "personal_sign";
             params = [params[1], params[0]];
@@ -58,7 +58,7 @@ function buildEip1193Fetcher(provider) {
             params = [];
         }
         // Metamask complains about eth_sign (and on some versions hangs)
-        if (method == "eth_sign" && (provider.isMetaMask || provider.isStatus)) {
+        if (method == "eth_sign" && (provider.isMetaMask || provider.isStatus || provider.isTrust)) {
             // https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_sign
             method = "personal_sign";
             params = [params[1], params[0]];
